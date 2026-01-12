@@ -20,26 +20,33 @@ class DuitkuService
         $this->callbackUrl = trim(env('DUITKU_CALLBACK_URL'));
         $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
 
-        // Use createInvoice endpoint for redirection checkout
+        // Use lowercase createinvoice endpoint
         $this->checkoutUrl = $this->isSandbox
-            ? 'https://sandbox.duitku.com/webapi/api/merchant/createInvoice'
-            : 'https://passport.duitku.com/webapi/api/merchant/createInvoice';
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/createinvoice'
+            : 'https://passport.duitku.com/webapi/api/merchant/createinvoice';
     }
 
     public function createInvoice($transaction, $participant, $package)
     {
         $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
-        $productDetails = $package->name;
+        $productDetails = substr($package->name, 0, 50); // Limit length
 
         // Signature: merchantCode + merchantOrderId + paymentAmount + apiKey
         $signature = md5($this->merchantCode . $merchantOrderId . $paymentAmount . $this->apiKey);
 
-        // Clean phone number
-        $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789');
+        // Clean and validate phone number
+        $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '');
+        if (empty($phoneNumber) || strlen($phoneNumber) < 10) {
+            $phoneNumber = '081234567890'; // Fallback valid number
+        }
         if (!str_starts_with($phoneNumber, '0')) {
             $phoneNumber = '0' . $phoneNumber;
         }
+
+        // Clean customer name - remove spaces and special chars
+        $customerName = preg_replace('/[^a-zA-Z0-9]/', '', $participant->name);
+        $customerName = substr($customerName, 0, 20);
 
         $params = [
             'merchantCode' => $this->merchantCode,
@@ -48,9 +55,20 @@ class DuitkuService
             'productDetails' => $productDetails,
             'additionalParam' => '',
             'merchantUserInfo' => $participant->email,
-            'customerVaName' => substr($participant->name, 0, 20),
+            'customerVaName' => $customerName,
             'email' => $participant->email,
             'phoneNumber' => $phoneNumber,
+            'itemDetails' => [
+                [
+                    'name' => substr($package->name, 0, 50),
+                    'price' => $paymentAmount,
+                    'quantity' => 1
+                ]
+            ],
+            'customerDetail' => [
+                'firstName' => $customerName,
+                'email' => $participant->email,
+            ],
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
             'expiryPeriod' => 60,
@@ -60,9 +78,13 @@ class DuitkuService
         try {
             Log::info('=== DUITKU REQUEST ===');
             Log::info('URL: ' . $this->checkoutUrl);
-            Log::info('Params: ', $params);
+            Log::info('Merchant: ' . $this->merchantCode);
+            Log::info('Order ID: ' . $merchantOrderId);
+            Log::info('Amount: ' . $paymentAmount);
+            Log::info('Signature: ' . $signature);
+            Log::info('Full Params: ', $params);
 
-            $response = Http::asForm()->post($this->checkoutUrl, $params);
+            $response = Http::post($this->checkoutUrl, $params);
 
             $responseBody = $response->body();
             Log::info('=== DUITKU RESPONSE ===');
@@ -72,7 +94,7 @@ class DuitkuService
             $data = $response->json();
 
             if (isset($data['paymentUrl'])) {
-                Log::info('SUCCESS: Payment URL received');
+                Log::info('SUCCESS: Payment URL received - ' . $data['paymentUrl']);
                 return [
                     'success' => true,
                     'paymentUrl' => $data['paymentUrl'],
@@ -82,14 +104,17 @@ class DuitkuService
 
             Log::error('FAILED: No paymentUrl in response');
 
+            $errorMsg = $data['statusMessage'] ?? ($data['Message'] ?? 'Unknown error');
+
             return [
                 'success' => false,
-                'statusMessage' => $data['statusMessage'] ?? ($data['Message'] ?? 'Response: ' . substr($responseBody, 0, 200))
+                'statusMessage' => $errorMsg . ' (Check logs for details)'
             ];
 
         } catch (\Exception $e) {
             Log::error('EXCEPTION: ' . $e->getMessage());
-            return ['success' => false, 'statusMessage' => 'Error: ' . $e->getMessage()];
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return ['success' => false, 'statusMessage' => 'Connection error: ' . $e->getMessage()];
         }
     }
 }
