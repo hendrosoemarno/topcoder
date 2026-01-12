@@ -145,6 +145,7 @@ class DuitkuService
 
     public function getPaymentMethods($amount)
     {
+        $amount = (int) $amount; // Force integer for signature
         $datetime = date('Y-m-d H:i:s');
         $signature = hash('sha256', $this->merchantCode . $amount . $datetime . $this->apiKey);
 
