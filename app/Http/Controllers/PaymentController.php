@@ -21,8 +21,13 @@ class PaymentController extends Controller
 
     public function pay(Request $request, Transaction $transaction)
     {
-        // Security check
-        if ($transaction->participant_id !== Auth::guard('participant')->id()) {
+        // Security check (Relaxed type check for DB compatibility)
+        if ($transaction->participant_id != Auth::guard('participant')->id()) {
+            Log::warning('Payment Access Denied', [
+                'transaction_id' => $transaction->id,
+                'trans_participant_id' => $transaction->participant_id,
+                'auth_id' => Auth::guard('participant')->id()
+            ]);
             abort(403);
         }
 
