@@ -34,27 +34,32 @@ class DuitkuService
         // Signature: merchantCode + merchantOrderId + paymentAmount + apiKey
         $signature = md5($this->merchantCode . $merchantOrderId . $paymentAmount . $this->apiKey);
 
+        // Sanitize strings to avoid Duitku errors
+        $firstName = substr($participant->name, 0, 20);
+        $email = $participant->email;
+        $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789');
+
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
             'merchantOrderId' => $merchantOrderId,
-            'productDetails' => $productDetails,
+            'productDetails' => substr($productDetails, 0, 255),
             'additionalParam' => '',
-            'merchantUserInfo' => $participant->email,
-            'customerVaName' => $participant->name,
-            'email' => $participant->email,
-            'phoneNumber' => $participant->whatsapp,
+            'merchantUserInfo' => $email,
+            'customerVaName' => $firstName,
+            'email' => $email,
+            'phoneNumber' => $phoneNumber,
             'itemDetails' => [
                 [
-                    'name' => $package->name,
+                    'name' => substr($package->name, 0, 50),
                     'price' => $paymentAmount,
                     'quantity' => 1
                 ]
             ],
             'customerDetail' => [
-                'firstName' => $participant->name,
-                'email' => $participant->email,
-                'phoneNumber' => $participant->whatsapp,
+                'firstName' => $firstName,
+                'email' => $email,
+                'phoneNumber' => $phoneNumber,
             ],
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
