@@ -15,9 +15,10 @@ class DuitkuService
 
     public function __construct()
     {
-        $this->merchantCode = env('DUITKU_MERCHANT_CODE');
-        $this->apiKey = env('DUITKU_API_KEY');
-        $this->callbackUrl = env('DUITKU_CALLBACK_URL');
+        // Trim values to avoid hidden space issues from .env
+        $this->merchantCode = trim(env('DUITKU_MERCHANT_CODE'));
+        $this->apiKey = trim(env('DUITKU_API_KEY'));
+        $this->callbackUrl = trim(env('DUITKU_CALLBACK_URL'));
         $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
 
         // Redirection Checkout URL
@@ -30,25 +31,20 @@ class DuitkuService
     {
         $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
-        $productDetails = $package->name;
+        $productDetails = substr($package->name, 0, 50); // Keep it short
 
         // Signature: merchantCode + merchantOrderId + paymentAmount + apiKey
         $signature = md5($this->merchantCode . $merchantOrderId . $paymentAmount . $this->apiKey);
-
-        // Basic Sanitization
-        $email = $participant->email;
-        $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789');
-        $customerName = substr($participant->name, 0, 20);
 
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
-            'merchantUserInfo' => $email,
-            'customerVaName' => $customerName,
-            'email' => $email,
-            'phoneNumber' => $phoneNumber,
+            'merchantUserInfo' => $participant->email,
+            'customerVaName' => substr($participant->name, 0, 20),
+            'email' => $participant->email,
+            'phoneNumber' => preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789'),
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
             'expiryPeriod' => 60,
@@ -56,14 +52,11 @@ class DuitkuService
         ];
 
         try {
-            Log::info('Duitku Sending Request: ', $params);
+            Log::info('Duitku Outgoing Request: ', ['url' => $this->checkoutUrl, 'params' => $params]);
 
-            $response = Http::withHeaders([
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ])->post($this->checkoutUrl, $params);
+            $response = Http::post($this->checkoutUrl, $params);
 
-            Log::info('Duitku Response Raw: ' . $response->body());
+            Log::info('Duitku Incoming Response: ' . $response->body());
 
             $data = $response->json();
 
@@ -77,11 +70,11 @@ class DuitkuService
 
             return [
                 'success' => false,
-                'statusMessage' => $data['statusMessage'] ?? ($data['Message'] ?? 'Terjadi kesalahan pada sistem Duitku (An error has occurred)')
+                'statusMessage' => $data['statusMessage'] ?? ($data['Message'] ?? 'An error occurred at Duitku side.')
             ];
 
         } catch (\Exception $e) {
-            Log::error('Duitku Checkout Connection Error: ' . $e->getMessage());
+            Log::error('Duitku Connection Error: ' . $e->getMessage());
             return ['success' => false, 'statusMessage' => 'Gagal terhubung ke server pembayaran.'];
         }
     }

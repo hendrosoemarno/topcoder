@@ -85,7 +85,7 @@ class FrontController extends Controller
 
                 // 3. Create Pending Transaction
                 $participant->transactions()->create([
-                    'order_id' => \Illuminate\Support\Str::uuid(),
+                    'order_id' => 'TC-' . time() . rand(10, 99),
                     'bootcamp_package_id' => $package->id,
                     'amount' => $package->price,
                     'status' => 'pending',
