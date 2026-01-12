@@ -23,7 +23,7 @@ class DuitkuService
 
     public function createInvoice($transaction, $participant, $package)
     {
-        $paymentAmount = (int) $transaction->amount; // Ensure integer
+        $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
         $productDetails = $package->name . ' - Batch ' . $package->batch_number;
 
@@ -33,7 +33,6 @@ class DuitkuService
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
-            'paymentMethod' => 'VC', // Default to Credit Card (VC) for Sandbox Test or let blank if allowed. Error said mandatory so let's try 'VC' or 'BK'
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
             'additionalParam' => '',
@@ -61,21 +60,28 @@ class DuitkuService
         ];
 
         try {
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-                'Content-Length' => strlen(json_encode($params))
-            ])->post($this->baseUrl, $params);
+            $response = Http::post($this->baseUrl, $params);
 
-            // Log response for debugging
-            if (!$response->successful()) {
-                \Illuminate\Support\Facades\Log::error('Duitku API Error: ' . $response->body());
+            \Illuminate\Support\Facades\Log::info('Duitku Response Raw: ' . $response->body());
+
+            $data = $response->json();
+
+            if (isset($data['paymentUrl'])) {
+                return [
+                    'success' => true,
+                    'paymentUrl' => $data['paymentUrl'],
+                    'reference' => $data['reference'] ?? null
+                ];
             }
 
-            return $response->json();
+            return [
+                'success' => false,
+                'statusMessage' => $data['statusMessage'] ?? ($data['Message'] ?? 'Unknown Error from Duitku')
+            ];
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Duitku Connection Error: ' . $e->getMessage());
-            return ['statusCode' => '500', 'statusMessage' => $e->getMessage()];
+            return ['success' => false, 'statusMessage' => $e->getMessage()];
         }
     }
 }
