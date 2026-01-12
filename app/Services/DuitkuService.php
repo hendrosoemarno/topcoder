@@ -33,6 +33,7 @@ class DuitkuService
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
+            'paymentMethod' => env('DUITKU_PAYMENT_METHOD', 'QR'), // Default to QRIS if not set
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
             'additionalParam' => '',
