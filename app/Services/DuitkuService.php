@@ -20,10 +20,10 @@ class DuitkuService
         $this->callbackUrl = trim(env('DUITKU_CALLBACK_URL'));
         $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
 
-        // Redirection Checkout URL (This endpoint allows user to choose payment method on Duitku site)
+        // Use createInvoice endpoint for redirection checkout
         $this->checkoutUrl = $this->isSandbox
-            ? 'https://sandbox.duitku.com/webapi/api/merchant/createinvoice'
-            : 'https://passport.duitku.com/webapi/api/merchant/createinvoice';
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/createInvoice'
+            : 'https://passport.duitku.com/webapi/api/merchant/createInvoice';
     }
 
     public function createInvoice($transaction, $participant, $package)
@@ -35,7 +35,12 @@ class DuitkuService
         // Signature: merchantCode + merchantOrderId + paymentAmount + apiKey
         $signature = md5($this->merchantCode . $merchantOrderId . $paymentAmount . $this->apiKey);
 
-        // Standard flat parameters for Redirection API
+        // Clean phone number
+        $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789');
+        if (!str_starts_with($phoneNumber, '0')) {
+            $phoneNumber = '0' . $phoneNumber;
+        }
+
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
@@ -45,7 +50,7 @@ class DuitkuService
             'merchantUserInfo' => $participant->email,
             'customerVaName' => substr($participant->name, 0, 20),
             'email' => $participant->email,
-            'phoneNumber' => preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '08123456789'),
+            'phoneNumber' => $phoneNumber,
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
             'expiryPeriod' => 60,
@@ -53,16 +58,21 @@ class DuitkuService
         ];
 
         try {
-            Log::info('Duitku Redirect Request: ', $params);
+            Log::info('=== DUITKU REQUEST ===');
+            Log::info('URL: ' . $this->checkoutUrl);
+            Log::info('Params: ', $params);
 
-            // Use asForm() for the redirection endpoint as it historically expects form data
-            $response = Http::asJson()->post($this->checkoutUrl, $params);
+            $response = Http::asForm()->post($this->checkoutUrl, $params);
 
-            Log::info('Duitku Redirect Response Raw: ' . $response->body());
+            $responseBody = $response->body();
+            Log::info('=== DUITKU RESPONSE ===');
+            Log::info('Status Code: ' . $response->status());
+            Log::info('Body: ' . $responseBody);
 
             $data = $response->json();
 
             if (isset($data['paymentUrl'])) {
+                Log::info('SUCCESS: Payment URL received');
                 return [
                     'success' => true,
                     'paymentUrl' => $data['paymentUrl'],
@@ -70,17 +80,16 @@ class DuitkuService
                 ];
             }
 
-            // Fallback: If not JSON or error, try to get specific message
-            $errorMsg = $data['statusMessage'] ?? ($data['Message'] ?? 'An error occurred at Duitku side.');
+            Log::error('FAILED: No paymentUrl in response');
 
             return [
                 'success' => false,
-                'statusMessage' => $errorMsg
+                'statusMessage' => $data['statusMessage'] ?? ($data['Message'] ?? 'Response: ' . substr($responseBody, 0, 200))
             ];
 
         } catch (\Exception $e) {
-            Log::error('Duitku Redirect Connection Error: ' . $e->getMessage());
-            return ['success' => false, 'statusMessage' => 'Gagal terhubung ke server pembayaran: ' . $e->getMessage()];
+            Log::error('EXCEPTION: ' . $e->getMessage());
+            return ['success' => false, 'statusMessage' => 'Error: ' . $e->getMessage()];
         }
     }
 }
