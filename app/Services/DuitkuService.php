@@ -10,18 +10,43 @@ class DuitkuService
     protected $apiKey;
     protected $callbackUrl;
     protected $baseUrl;
+    protected $isSandbox;
 
     public function __construct()
     {
         $this->merchantCode = env('DUITKU_MERCHANT_CODE');
         $this->apiKey = env('DUITKU_API_KEY');
         $this->callbackUrl = env('DUITKU_CALLBACK_URL');
-        $this->baseUrl = env('DUITKU_SANDBOX', true)
+        $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
+        $this->baseUrl = $this->isSandbox
             ? 'https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry'
             : 'https://passport.duitku.com/webapi/api/merchant/v2/inquiry';
     }
 
-    public function createInvoice($transaction, $participant, $package)
+    public function getPaymentMethods($amount)
+    {
+        $datetime = date('Y-m-d H:i:s');
+        $signature = hash('sha256', $this->merchantCode . $amount . $datetime . $this->apiKey);
+
+        $url = $this->isSandbox
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getlist'
+            : 'https://passport.duitku.com/webapi/api/merchant/paymentmethod/getlist';
+
+        try {
+            $response = Http::post($url, [
+                'merchantCode' => $this->merchantCode,
+                'amount' => (int) $amount,
+                'datetime' => $datetime,
+                'signature' => $signature
+            ]);
+
+            return $response->json();
+        } catch (\Exception $e) {
+            return ['paymentFee' => []];
+        }
+    }
+
+    public function createInvoice($transaction, $participant, $package, $paymentMethod)
     {
         $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
@@ -33,7 +58,7 @@ class DuitkuService
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
-            'paymentMethod' => env('DUITKU_PAYMENT_METHOD', 'QR'), // Default to QRIS if not set
+            'paymentMethod' => $paymentMethod,
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
             'additionalParam' => '',

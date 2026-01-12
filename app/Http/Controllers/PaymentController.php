@@ -35,25 +35,33 @@ class PaymentController extends Controller
             return redirect()->route('dashboard');
         }
 
-        // If payment URL already exists and not expired, create new one or reuse?
-        // Let's always try to get a new one or reuse logical check if needed.
-        // For now, simplify: Always request new URL.
+        // If user has selected a method
+        if ($request->has('method')) {
+            $result = $this->duitku->createInvoice(
+                $transaction,
+                $transaction->participant,
+                $transaction->package,
+                $request->method
+            );
 
-        $result = $this->duitku->createInvoice(
-            $transaction,
-            $transaction->participant,
-            $transaction->package
-        );
+            if (isset($result['success']) && $result['success']) {
+                $transaction->update([
+                    'payment_url' => $result['paymentUrl'],
+                    'reference' => $result['reference'] ?? null,
+                    'payment_method' => $request->method
+                ]);
+                return redirect($result['paymentUrl']);
+            }
 
-        if (isset($result['paymentUrl'])) {
-            $transaction->update([
-                'payment_url' => $result['paymentUrl'],
-                'reference' => $result['reference'] ?? null
-            ]);
-            return redirect($result['paymentUrl']);
+            return redirect()->route('pay', $transaction)
+                ->with('error', 'Gagal membuat invoice: ' . ($result['statusMessage'] ?? 'Unknown error'));
         }
 
-        return back()->with('error', 'Failed to generate payment URL: ' . ($result['statusMessage'] ?? 'Unknown error'));
+        // Otherwise show selection page
+        $methodsResponse = $this->duitku->getPaymentMethods($transaction->amount);
+        $methods = $methodsResponse['paymentFee'] ?? [];
+
+        return view('participant.select-payment', compact('transaction', 'methods'));
     }
 
     public function callback(Request $request)
