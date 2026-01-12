@@ -9,8 +9,8 @@ class DuitkuService
     protected $merchantCode;
     protected $apiKey;
     protected $callbackUrl;
-    protected $baseUrl;
     protected $isSandbox;
+    protected $checkoutUrl;
 
     public function __construct()
     {
@@ -18,35 +18,14 @@ class DuitkuService
         $this->apiKey = env('DUITKU_API_KEY');
         $this->callbackUrl = env('DUITKU_CALLBACK_URL');
         $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
-        $this->baseUrl = $this->isSandbox
-            ? 'https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry'
-            : 'https://passport.duitku.com/webapi/api/merchant/v2/inquiry';
+
+        // Redirection Checkout URL
+        $this->checkoutUrl = $this->isSandbox
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/createinvoice'
+            : 'https://passport.duitku.com/webapi/api/merchant/createinvoice';
     }
 
-    public function getPaymentMethods($amount)
-    {
-        $datetime = date('Y-m-d H:i:s');
-        $signature = hash('sha256', $this->merchantCode . $amount . $datetime . $this->apiKey);
-
-        $url = $this->isSandbox
-            ? 'https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getlist'
-            : 'https://passport.duitku.com/webapi/api/merchant/paymentmethod/getlist';
-
-        try {
-            $response = Http::post($url, [
-                'merchantCode' => $this->merchantCode,
-                'amount' => (int) $amount,
-                'datetime' => $datetime,
-                'signature' => $signature
-            ]);
-
-            return $response->json();
-        } catch (\Exception $e) {
-            return ['paymentFee' => []];
-        }
-    }
-
-    public function createInvoice($transaction, $participant, $package, $paymentMethod)
+    public function createInvoice($transaction, $participant, $package)
     {
         $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
@@ -58,7 +37,6 @@ class DuitkuService
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
-            'paymentMethod' => $paymentMethod,
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
             'additionalParam' => '',
@@ -66,18 +44,17 @@ class DuitkuService
             'customerVaName' => $participant->name,
             'email' => $participant->email,
             'phoneNumber' => $participant->whatsapp,
+            'itemDetails' => [
+                [
+                    'name' => $package->name,
+                    'price' => $paymentAmount,
+                    'quantity' => 1
+                ]
+            ],
             'customerDetail' => [
                 'firstName' => $participant->name,
                 'email' => $participant->email,
                 'phoneNumber' => $participant->whatsapp,
-                'billingAddress' => [
-                    'firstName' => $participant->name,
-                    'address' => $participant->address,
-                    'city' => $participant->city,
-                    'postalCode' => $participant->postal_code,
-                    'phone' => $participant->whatsapp,
-                    'countryCode' => 'ID'
-                ]
             ],
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
@@ -86,9 +63,9 @@ class DuitkuService
         ];
 
         try {
-            $response = Http::post($this->baseUrl, $params);
+            $response = Http::post($this->checkoutUrl, $params);
 
-            \Illuminate\Support\Facades\Log::info('Duitku Response Raw: ' . $response->body());
+            \Illuminate\Support\Facades\Log::info('Duitku Checkout Response: ' . $response->body());
 
             $data = $response->json();
 
@@ -106,7 +83,7 @@ class DuitkuService
             ];
 
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Duitku Connection Error: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Duitku Checkout Connection Error: ' . $e->getMessage());
             return ['success' => false, 'statusMessage' => $e->getMessage()];
         }
     }

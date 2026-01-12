@@ -35,33 +35,23 @@ class PaymentController extends Controller
             return redirect()->route('dashboard');
         }
 
-        // If user has selected a method
-        if ($request->has('method')) {
-            $result = $this->duitku->createInvoice(
-                $transaction,
-                $transaction->participant,
-                $transaction->package,
-                $request->method
-            );
+        // Initiate Duitku Redirection Checkout
+        $result = $this->duitku->createInvoice(
+            $transaction,
+            $transaction->participant,
+            $transaction->package
+        );
 
-            if (isset($result['success']) && $result['success']) {
-                $transaction->update([
-                    'payment_url' => $result['paymentUrl'],
-                    'reference' => $result['reference'] ?? null,
-                    'payment_method' => $request->method
-                ]);
-                return redirect($result['paymentUrl']);
-            }
-
-            return redirect()->route('pay', $transaction)
-                ->with('error', 'Gagal membuat invoice: ' . ($result['statusMessage'] ?? 'Unknown error'));
+        if (isset($result['success']) && $result['success']) {
+            $transaction->update([
+                'payment_url' => $result['paymentUrl'],
+                'reference' => $result['reference'] ?? null
+            ]);
+            return redirect($result['paymentUrl']);
         }
 
-        // Otherwise show selection page
-        $methodsResponse = $this->duitku->getPaymentMethods($transaction->amount);
-        $methods = $methodsResponse['paymentFee'] ?? [];
-
-        return view('participant.select-payment', compact('transaction', 'methods'));
+        return redirect()->route('dashboard')
+            ->with('error', 'Gagal memproses pembayaran: ' . ($result['statusMessage'] ?? 'Unknown error'));
     }
 
     public function callback(Request $request)
