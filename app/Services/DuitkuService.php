@@ -153,17 +153,33 @@ class DuitkuService
             : 'https://passport.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod';
 
         try {
-            $response = Http::post($url, [
-                'merchantcode' => $this->merchantCode,
-                'amount' => (int) $amount,
-                'datetime' => $datetime,
-                'signature' => $signature
-            ]);
+            Log::info('=== GET PAYMENT METHODS REQUEST ===');
+            Log::info('URL: ' . $url);
+            Log::info('Merchant Code: ' . $this->merchantCode);
+            Log::info('Amount: ' . $amount);
+            Log::info('Datetime: ' . $datetime);
+            Log::info('Signature: ' . $signature);
+
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($url, [
+                        'merchantcode' => $this->merchantCode,
+                        'amount' => (int) $amount,
+                        'datetime' => $datetime,
+                        'signature' => $signature
+                    ]);
+
+            Log::info('=== GET PAYMENT METHODS RESPONSE ===');
+            Log::info('Status Code: ' . $response->status());
+            Log::info('Body: ' . $response->body());
 
             if ($response->successful()) {
-                return $response->json()['paymentFee'] ?? [];
+                $data = $response->json();
+                Log::info('Payment Methods Found: ' . count($data['paymentFee'] ?? []));
+                return $data['paymentFee'] ?? [];
             }
 
+            Log::error('Failed to get payment methods - Status: ' . $response->status());
             return [];
         } catch (\Exception $e) {
             Log::error('Get Payment Methods Error: ' . $e->getMessage());
