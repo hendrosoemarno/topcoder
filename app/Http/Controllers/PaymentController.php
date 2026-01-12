@@ -35,23 +35,32 @@ class PaymentController extends Controller
             return redirect()->route('dashboard');
         }
 
-        // Initiate Duitku Redirection Checkout
-        $result = $this->duitku->createInvoice(
-            $transaction,
-            $transaction->participant,
-            $transaction->package
-        );
+        // If payment method is selected, proceed with Duitku
+        if ($request->has('method')) {
+            $result = $this->duitku->createInvoice(
+                $transaction,
+                $transaction->participant,
+                $transaction->package,
+                $request->method
+            );
 
-        if (isset($result['success']) && $result['success']) {
-            $transaction->update([
-                'payment_url' => $result['paymentUrl'],
-                'reference' => $result['reference'] ?? null
-            ]);
-            return redirect($result['paymentUrl']);
+            if (isset($result['success']) && $result['success']) {
+                $transaction->update([
+                    'payment_url' => $result['paymentUrl'],
+                    'reference' => $result['reference'] ?? null,
+                    'payment_method' => $request->method
+                ]);
+                return redirect($result['paymentUrl']);
+            }
+
+            return redirect()->route('dashboard')
+                ->with('error', 'Gagal memproses pembayaran: ' . ($result['statusMessage'] ?? 'Unknown error'));
         }
 
-        return redirect()->route('dashboard')
-            ->with('error', 'Gagal memproses pembayaran: ' . ($result['statusMessage'] ?? 'Unknown error'));
+        // Show payment method selection
+        $methods = $this->duitku->getPaymentMethods($transaction->amount);
+
+        return view('participant.select-payment', compact('transaction', 'methods'));
     }
 
     public function callback(Request $request)

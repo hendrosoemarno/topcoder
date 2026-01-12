@@ -11,7 +11,6 @@ class DuitkuService
     protected $apiKey;
     protected $callbackUrl;
     protected $isSandbox;
-    protected $checkoutUrl;
 
     public function __construct()
     {
@@ -19,56 +18,80 @@ class DuitkuService
         $this->apiKey = trim(env('DUITKU_API_KEY'));
         $this->callbackUrl = trim(env('DUITKU_CALLBACK_URL'));
         $this->isSandbox = (bool) env('DUITKU_SANDBOX', true);
-
-        // Use lowercase createinvoice endpoint
-        $this->checkoutUrl = $this->isSandbox
-            ? 'https://sandbox.duitku.com/webapi/api/merchant/createinvoice'
-            : 'https://passport.duitku.com/webapi/api/merchant/createinvoice';
     }
 
-    public function createInvoice($transaction, $participant, $package)
+    private function getInquiryUrl()
+    {
+        return $this->isSandbox
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry'
+            : 'https://passport.duitku.com/webapi/api/merchant/v2/inquiry';
+    }
+
+    public function createInvoice($transaction, $participant, $package, $paymentMethod = 'SP')
     {
         $paymentAmount = (int) $transaction->amount;
         $merchantOrderId = $transaction->order_id;
-        $productDetails = substr($package->name, 0, 50); // Limit length
+        $productDetails = substr($package->name, 0, 50);
 
         // Signature: merchantCode + merchantOrderId + paymentAmount + apiKey
         $signature = md5($this->merchantCode . $merchantOrderId . $paymentAmount . $this->apiKey);
 
-        // Clean and validate phone number
+        // Clean phone number
         $phoneNumber = preg_replace('/[^0-9]/', '', $participant->whatsapp ?? '');
         if (empty($phoneNumber) || strlen($phoneNumber) < 10) {
-            $phoneNumber = '081234567890'; // Fallback valid number
+            $phoneNumber = '081234567890';
         }
         if (!str_starts_with($phoneNumber, '0')) {
             $phoneNumber = '0' . $phoneNumber;
         }
 
-        // Clean customer name - remove spaces and special chars
-        $customerName = preg_replace('/[^a-zA-Z0-9]/', '', $participant->name);
-        $customerName = substr($customerName, 0, 20);
+        // Clean customer name
+        $firstName = preg_replace('/[^a-zA-Z ]/', '', $participant->name);
+        $firstName = substr($firstName, 0, 20);
+
+        // Build address
+        $address = [
+            'firstName' => $firstName,
+            'lastName' => '',
+            'address' => $participant->address ?? 'Jakarta',
+            'city' => $participant->city ?? 'Jakarta',
+            'postalCode' => $participant->postal_code ?? '10110',
+            'phone' => $phoneNumber,
+            'countryCode' => 'ID'
+        ];
+
+        // Build customer detail
+        $customerDetail = [
+            'firstName' => $firstName,
+            'lastName' => '',
+            'email' => $participant->email,
+            'phoneNumber' => $phoneNumber,
+            'billingAddress' => $address,
+            'shippingAddress' => $address
+        ];
+
+        // Build item details
+        $itemDetails = [
+            [
+                'name' => substr($package->name, 0, 50),
+                'price' => $paymentAmount,
+                'quantity' => 1
+            ]
+        ];
 
         $params = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
+            'paymentMethod' => $paymentMethod, // REQUIRED!
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => $productDetails,
             'additionalParam' => '',
             'merchantUserInfo' => $participant->email,
-            'customerVaName' => $customerName,
+            'customerVaName' => $firstName,
             'email' => $participant->email,
             'phoneNumber' => $phoneNumber,
-            'itemDetails' => [
-                [
-                    'name' => substr($package->name, 0, 50),
-                    'price' => $paymentAmount,
-                    'quantity' => 1
-                ]
-            ],
-            'customerDetail' => [
-                'firstName' => $customerName,
-                'email' => $participant->email,
-            ],
+            'itemDetails' => $itemDetails,
+            'customerDetail' => $customerDetail,
             'callbackUrl' => $this->callbackUrl,
             'returnUrl' => route('dashboard'),
             'expiryPeriod' => 60,
@@ -76,45 +99,75 @@ class DuitkuService
         ];
 
         try {
-            Log::info('=== DUITKU REQUEST ===');
-            Log::info('URL: ' . $this->checkoutUrl);
-            Log::info('Merchant: ' . $this->merchantCode);
-            Log::info('Order ID: ' . $merchantOrderId);
-            Log::info('Amount: ' . $paymentAmount);
-            Log::info('Signature: ' . $signature);
+            Log::info('=== DUITKU V2 INQUIRY REQUEST ===');
+            Log::info('URL: ' . $this->getInquiryUrl());
+            Log::info('Payment Method: ' . $paymentMethod);
             Log::info('Full Params: ', $params);
 
-            $response = Http::post($this->checkoutUrl, $params);
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($this->getInquiryUrl(), $params);
 
             $responseBody = $response->body();
             Log::info('=== DUITKU RESPONSE ===');
             Log::info('Status Code: ' . $response->status());
             Log::info('Body: ' . $responseBody);
 
-            $data = $response->json();
+            if ($response->status() == 200) {
+                $data = $response->json();
 
-            if (isset($data['paymentUrl'])) {
-                Log::info('SUCCESS: Payment URL received - ' . $data['paymentUrl']);
-                return [
-                    'success' => true,
-                    'paymentUrl' => $data['paymentUrl'],
-                    'reference' => $data['reference'] ?? null
-                ];
+                if (isset($data['paymentUrl'])) {
+                    Log::info('SUCCESS: Payment URL received');
+                    return [
+                        'success' => true,
+                        'paymentUrl' => $data['paymentUrl'],
+                        'reference' => $data['reference'] ?? null,
+                        'vaNumber' => $data['vaNumber'] ?? null
+                    ];
+                }
             }
 
-            Log::error('FAILED: No paymentUrl in response');
+            $data = $response->json();
+            $errorMsg = $data['statusMessage'] ?? ($data['Message'] ?? 'Unknown error from Duitku');
 
-            $errorMsg = $data['statusMessage'] ?? ($data['Message'] ?? 'Unknown error');
+            Log::error('FAILED: ' . $errorMsg);
 
             return [
                 'success' => false,
-                'statusMessage' => $errorMsg . ' (Check logs for details)'
+                'statusMessage' => $errorMsg
             ];
 
         } catch (\Exception $e) {
             Log::error('EXCEPTION: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             return ['success' => false, 'statusMessage' => 'Connection error: ' . $e->getMessage()];
+        }
+    }
+
+    public function getPaymentMethods($amount)
+    {
+        $datetime = date('Y-m-d H:i:s');
+        $signature = hash('sha256', $this->merchantCode . $amount . $datetime . $this->apiKey);
+
+        $url = $this->isSandbox
+            ? 'https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod'
+            : 'https://passport.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod';
+
+        try {
+            $response = Http::post($url, [
+                'merchantcode' => $this->merchantCode,
+                'amount' => (int) $amount,
+                'datetime' => $datetime,
+                'signature' => $signature
+            ]);
+
+            if ($response->successful()) {
+                return $response->json()['paymentFee'] ?? [];
+            }
+
+            return [];
+        } catch (\Exception $e) {
+            Log::error('Get Payment Methods Error: ' . $e->getMessage());
+            return [];
         }
     }
 }
