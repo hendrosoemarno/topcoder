@@ -9,6 +9,22 @@
                 </div>
             @endif
 
+            @if(session('error'))
+                <div class="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6">
+                    {{ session('error') }}
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl mb-6">
+                    <ul class="list-disc list-inside">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                 <!-- Profile Card -->
@@ -45,10 +61,10 @@
                                     <span class="text-2xl font-bold text-white block">Rp
                                         {{ number_format($latestTransaction->amount, 0, ',', '.') }}</span>
                                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider 
-                                                    @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
-                                                    @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
-                                                    @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
-                                                    @else bg-gray-500/20 text-gray-500 @endif">
+                                                        @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
+                                                        @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
+                                                        @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
+                                                        @else bg-gray-500/20 text-gray-500 @endif">
                                         @if($latestTransaction->status == 'paid')
                                             SUKSES
                                         @elseif($latestTransaction->status == 'pending')
