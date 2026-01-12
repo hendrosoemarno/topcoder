@@ -19,18 +19,7 @@ Route::middleware(['auth:participant'])->group(function () {
 // Callback Duitku (Exclude CSRF if needed)
 Route::post('/payment/callback', [\App\Http\Controllers\PaymentController::class, 'callback'])->name('payment.callback');
 
-// Manual Simulation Route (Local Only)
-Route::get('/payment/simulate-success/{transaction}', function (\App\Models\Transaction $transaction) {
-    if (app()->environment('local')) {
-        $transaction->update([
-            'status' => 'paid',
-            'reference' => 'SIMULATED-' . time(),
-            'payment_method' => 'SIMULATION'
-        ]);
-        return redirect()->route('dashboard')->with('success', 'Pembayaran berhasil disimulasikan!');
-    }
-    abort(403);
-})->name('payment.simulate');
+
 
 
 // Admin Routes

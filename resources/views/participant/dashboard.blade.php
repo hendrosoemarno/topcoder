@@ -61,10 +61,10 @@
                                     <span class="text-2xl font-bold text-white block">Rp
                                         {{ number_format($latestTransaction->amount, 0, ',', '.') }}</span>
                                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider 
-                                                        @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
-                                                        @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
-                                                        @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
-                                                        @else bg-gray-500/20 text-gray-500 @endif">
+                                                            @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
+                                                            @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
+                                                            @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
+                                                            @else bg-gray-500/20 text-gray-500 @endif">
                                         @if($latestTransaction->status == 'paid')
                                             SUKSES
                                         @elseif($latestTransaction->status == 'pending')
@@ -84,12 +84,7 @@
                                             Bayar Sekarang
                                         </a>
 
-                                        @if(config('app.env') == 'local')
-                                            <a href="{{ route('payment.simulate', $latestTransaction->id) }}"
-                                                class="inline-block px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-medium transition border border-white/10 text-center">
-                                                Simulasi Sukses (Dev Only)
-                                            </a>
-                                        @endif
+
                                     </div>
                                 @endif
                             </div>
