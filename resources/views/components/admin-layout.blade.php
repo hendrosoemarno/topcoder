@@ -71,6 +71,15 @@
                     <span class="mx-3 font-medium">Packages</span>
                 </a>
 
+                <a href="{{ route('admin.users.index') }}"
+                    class="flex items-center px-6 py-3 {{ request()->routeIs('admin.users*') ? 'bg-primary/10 text-primary border-r-4 border-primary' : 'text-gray-400 hover:bg-white/5 hover:text-white' }} transition-colors duration-200 transform rounded-lg">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span class="mx-3 font-medium">Admin Users</span>
+                </a>
+
                 <form action="{{ route('admin.logout') }}" method="POST" class="mt-10">
                     @csrf
                     <button type="submit"

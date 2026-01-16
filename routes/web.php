@@ -42,6 +42,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // Participants
         Route::resource('participants', \App\Http\Controllers\Admin\ParticipantController::class)->only(['index', 'show']);
 
+        // Admin Users
+        Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
+
         // Bootcamp Packages
         Route::resource('packages', \App\Http\Controllers\Admin\PackageController::class);
     });
