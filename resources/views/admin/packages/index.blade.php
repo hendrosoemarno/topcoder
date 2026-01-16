@@ -43,9 +43,27 @@
                             Rp {{ number_format($package->price, 0, ',', '.') }}
                         </td>
                         <td class="px-5 py-5 border-b border-white/10 bg-surface text-sm">
+                            @php
+                                $now = now();
+                                $status = 'Inactive';
+                                $color = 'text-red-500 bg-red-500/10';
+
+                                if ($package->is_active) {
+                                    if ($package->start_date && $package->start_date > $now) {
+                                        $status = 'Upcoming';
+                                        $color = 'text-blue-500 bg-blue-500/10';
+                                    } elseif ($package->end_date && $package->end_date < $now) {
+                                        $status = 'Expired';
+                                        $color = 'text-yellow-500 bg-yellow-500/10';
+                                    } elseif ((!$package->start_date || $package->start_date <= $now) && (!$package->end_date || $package->end_date >= $now)) {
+                                        $status = 'Live';
+                                        $color = 'text-green-500 bg-green-500/10';
+                                    }
+                                }
+                            @endphp
                             <span
-                                class="inline-block px-3 py-1 text-xs font-semibold leading-tight {{ $package->is_active ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10' }} rounded-full">
-                                {{ $package->is_active ? 'Active' : 'Inactive' }}
+                                class="inline-block px-3 py-1 text-xs font-semibold leading-tight {{ $color }} rounded-full">
+                                {{ $status }}
                             </span>
                         </td>
                         <td class="px-5 py-5 border-b border-white/10 bg-surface text-sm">
