@@ -5,10 +5,9 @@
             <!-- Left Side: Branding & Info (Hidden on mobile) -->
             <div class="hidden lg:flex w-5/12 bg-dark-lighter relative p-12 flex-col justify-between overflow-hidden">
                 <div class="relative z-10">
-                    <h2 class="text-3xl font-bold font-display text-white mb-4">Bergabunglah dengan Para Elite</h2>
+                    <h2 class="text-3xl font-bold font-display text-white mb-4">Bergabunglah dengan Kami</h2>
                     <p class="text-gray-400 leading-relaxed">
-                        Anda tinggal satu langkah lagi untuk mengubah karir Anda. Bergabunglah dengan ratusan developer
-                        yang telah meningkatkan skill mereka bersama kami.
+                        Anda tinggal satu langkah lagi untuk mengubah karir Anda.
                     </p>
                 </div>
 
