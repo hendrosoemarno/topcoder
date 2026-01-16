@@ -10,13 +10,19 @@ class FrontController extends Controller
 {
     public function index()
     {
-        $packages = BootcampPackage::where('is_active', true)->get();
+        $packages = BootcampPackage::where('is_active', true)
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->get();
         return view('landing', compact('packages'));
     }
 
     public function register()
     {
-        $packages = BootcampPackage::where('is_active', true)->get();
+        $packages = BootcampPackage::where('is_active', true)
+            ->whereDate('start_date', '<=', now())
+            ->whereDate('end_date', '>=', now())
+            ->get();
         return view('auth.register', compact('packages'));
     }
 
