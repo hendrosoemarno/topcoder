@@ -13,7 +13,7 @@
                 </div>
 
                 <div class="relative z-10">
-                    <div class="flex items-center space-x-2 mb-4">
+                    {{-- <div class="flex items-center space-x-2 mb-4">
                         <div class="flex -space-x-2">
                             <!-- Dummy Avatars -->
                             <div class="w-10 h-10 rounded-full border-2 border-dark-lighter bg-gray-600"></div>
@@ -27,7 +27,7 @@
                         <p class="text-gray-300 italic text-sm">"Investasi terbaik untuk karir saya. Pendekatan berbasis
                             proyek adalah apa yang saya butuhkan."</p>
                         <p class="text-white text-xs font-bold mt-4 uppercase tracking-wider">Ahmad, Alumni Batch 3</p>
-                    </div>
+                    </div> --}}
                 </div>
 
                 <!-- Abstract Decorations -->
