@@ -45,7 +45,13 @@
 
                 <!-- Latest Transaction / Payment Status -->
                 <div class="md:col-span-2 bg-surface p-6 rounded-2xl border border-white/5">
-                    <h2 class="text-xl font-bold text-white mb-4">Current Bootcamp</h2>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">Current Bootcamp</h2>
+                        <a href="{{ route('participant.catalog') }}"
+                            class="text-sm bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-lg font-bold transition">
+                            + Join New Class
+                        </a>
+                    </div>
 
                     @if($latestTransaction)
                         <div
@@ -61,10 +67,10 @@
                                     <span class="text-2xl font-bold text-white block">Rp
                                         {{ number_format($latestTransaction->amount, 0, ',', '.') }}</span>
                                     <span class="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider 
-                                                            @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
-                                                            @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
-                                                            @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
-                                                            @else bg-gray-500/20 text-gray-500 @endif">
+                                                                @if($latestTransaction->status == 'paid') bg-green-500/20 text-green-500
+                                                                @elseif($latestTransaction->status == 'pending') bg-yellow-500/20 text-yellow-500
+                                                                @elseif($latestTransaction->status == 'failed') bg-red-500/20 text-red-500
+                                                                @else bg-gray-500/20 text-gray-500 @endif">
                                         @if($latestTransaction->status == 'paid')
                                             SUKSES
                                         @elseif($latestTransaction->status == 'pending')

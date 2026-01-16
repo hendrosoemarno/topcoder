@@ -13,6 +13,8 @@ Route::post('/login', [\App\Http\Controllers\Auth\LoginController::class, 'login
 Route::middleware(['auth:participant'])->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [\App\Http\Controllers\ParticipantDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/catalog', [\App\Http\Controllers\ParticipantOrderController::class, 'index'])->name('participant.catalog');
+    Route::post('/order', [\App\Http\Controllers\ParticipantOrderController::class, 'store'])->name('participant.order.store');
     Route::get('/pay/{transaction}', [\App\Http\Controllers\PaymentController::class, 'pay'])->name('pay');
 });
 
@@ -40,7 +42,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Admin\DashboardController::class, 'index'])->name('dashboard');
 
         // Participants
-        Route::resource('participants', \App\Http\Controllers\Admin\ParticipantController::class)->only(['index', 'show']);
+        Route::resource('participants', \App\Http\Controllers\Admin\ParticipantController::class);
 
         // Admin Users
         Route::resource('users', \App\Http\Controllers\Admin\AdminUserController::class);
